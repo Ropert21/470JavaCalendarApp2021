@@ -127,6 +127,28 @@ public class SwissEphDate {
 		return (hour + ":" + getMinutes(sd.getHour()));
 	}
 	
+	// Moonrise time
+	public String getMoonriseTime() {
+		DblObj data = new DblObj(0); // Holds julian date of when sunrise occurs after calculation
+		sw.swe_rise_trans(julianDate, MOON, null, SWISSEPH, SweConst.SE_CALC_RISE, position, 0, 22, data, new StringBuffer("Sunrise Calculation failed"));
+		
+		// Converting julian date provided to time
+		sd.setJulDay(data.val); 
+		int hour = setTimezone(sd.getHour());
+		return (hour + ":" + getMinutes(sd.getHour()));
+	}
+	
+	// Moonset time
+	public String getMoonsetTime() {
+		DblObj data = new DblObj(0); // Holds julian date of when sunrise occurs after calculation
+		sw.swe_rise_trans(julianDate, MOON, null, SWISSEPH, SweConst.SE_CALC_SET, position, 0, 22, data, new StringBuffer("Sunset Calculation failed"));
+		
+		// Converting julian date provided to time
+		sd.setJulDay(data.val); 
+		int hour = setTimezone(sd.getHour());
+		return (hour + ":" + getMinutes(sd.getHour()));
+	}
+	
 	// Returns a LocalDate object containing the next solar eclipse for provided location
 	public LocalDate getNextSolarEclipse() {
 		double[] tret = new double[20], attr = new double[20]; // used for holding data from calculations

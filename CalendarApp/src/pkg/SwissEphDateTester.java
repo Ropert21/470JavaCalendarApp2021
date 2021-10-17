@@ -50,6 +50,8 @@ public class SwissEphDateTester {
 		if(s.daysInMonth() != 31)
 			System.out.println("test 11 failed");
 		
+		System.out.println(s.getMoonriseTime() + " " + s.getMoonsetTime());
+		
 		// is solar eclispe test
 		s = new SwissEphDate(LocalDate.of(2023, 10, 14), -119.4960, 49.803, 334.0);
 		if(s.isSolarEclipse() == false)
