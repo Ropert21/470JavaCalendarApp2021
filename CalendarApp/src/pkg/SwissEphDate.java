@@ -1,15 +1,16 @@
 package pkg;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import javafx.scene.image.Image;
 import java.time.LocalDate;
-import java.time.LocalTime;
-
-import swisseph.*;
+import swisseph.*; // If you're having issues with importing swisseph try changing the build path to the jar in eclispe
 
 /*
  * This class is intended to act as an easy way for the calendar GUI to interface with the Swiss Ephemeris library
- * The class is created with a date object which cannot be changed after creation, only creating a new one will change it
+ * The class is created with a date and location which cannot be changed after creation, only creating a new one will change it
+ * Using the provided day and location the class will use the swiss eph library to perform various calculations
  * Link to swiss eph documentation: http://www.th-mack.de/download/swisseph-doc/swisseph/SwissEph.html
- * TODO: Look up all requirements, ask for special gui requirements, 
  */
 
 public class SwissEphDate {
@@ -54,9 +55,9 @@ public class SwissEphDate {
 	public int getMonth() { return gregDate.getMonthValue(); }
 	public int getDayOfMonth() { return gregDate.getDayOfMonth(); }
 	public int getDayOfWeek() { return gregDate.getDayOfWeek().getValue(); }
-	public int getTimeZone() { return timeZoneOffset; } // returns amount of hours ahead / behind greenwich time
+	public int getTimeZone() { return timeZoneOffset; } // returns amount of hours ahead / behind greenwich time (PST is +7)
 
-	// *** Main calculation methods (moon, sunrise/set, eclipses, ...)
+	// *** Main calculation methods (moon, sunrise/set & eclipses)
 
 	// Returns phase of moon in a string such as "Waning Crescent" or "Full Moon"
 	public String getMoonPhase() {
@@ -70,14 +71,14 @@ public class SwissEphDate {
 			output += "Waning ";
 		
 		// Calculates moon phase based on % lit
-		if(litpercent > .98)
+		if(litpercent > .99)
 			output = "Full Moon";
 		else if (litpercent > .5)
 			output += "Gibbous";
-		else if (litpercent > .02)
+		else if (litpercent > .01)
 			output += "Crescent";
 		else
-			output += "New Moon";
+			output = "New Moon";
 		
 		return output;
 	}
@@ -88,6 +89,20 @@ public class SwissEphDate {
 		double[] data = new double[20];
 		sw.swe_pheno(julianDate, MOON, SWISSEPH, data, new StringBuffer("Calculation failed"));
 		return data[1];
+	}
+	
+	// Returns an image in the res folder corresponding to the current moon phase
+	public Image getMoonPhaseImg() {
+		String phase = getMoonPhase();
+		phase.replace(" ", ""); // Removes spaces from string
+		
+		try {
+			FileInputStream fis = new FileInputStream("./res/" + phase + ".png");
+			return new Image(fis);
+		} catch (FileNotFoundException e) {
+			System.out.println("File not found: " + phase);
+			return null;
+		}
 	}
 	
 	// Returns a string of the sunrise time in 24 hours for current date eg. 18:32 or 6:07
@@ -136,7 +151,7 @@ public class SwissEphDate {
 		return new SwissEphDate(gregDate.plusDays(days), position[0], position[1], position[2]);
 	}
 	
-	// Returns amount of days of the month the date is in
+	// Returns amount of days in the month the date is in
 	public int daysInMonth() {
 		int current = gregDate.getDayOfMonth();
 		int next = gregDate.getDayOfMonth();
@@ -150,7 +165,21 @@ public class SwissEphDate {
 		
 		return current;
 	}
-
+	
+	// Returns wether the day contains a solar eclipse, might be useful for guis
+	public boolean isSolarEclipse() {
+		if(getNextSolarEclipse().equals(gregDate))
+			return true;
+		return false;
+	}
+	
+	// Returns wether the day contains a lunar eclipse, might be useful for guis
+	public boolean isLunarEclipse() {
+		if(getNextLunarEclipse().equals(gregDate))
+			return true;
+		return false;
+	}
+	
 	// *** Private methods to help with calculations
 
 	// Sets an hour output to a time zone
