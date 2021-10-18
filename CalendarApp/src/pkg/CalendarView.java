@@ -16,205 +16,249 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
-import javafx.scene.input.KeyCode;
+import javafx.scene.layout.Border;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.BorderStroke;
+import javafx.scene.layout.BorderStrokeStyle;
+import javafx.scene.layout.BorderWidths;
+import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
-import javafx.scene.shape.Rectangle;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 public class CalendarView extends Application {
 
-	private final List<TimeSlot> timeSlots = new ArrayList<>();
-	LocalDate today = LocalDate.now();
-	LocalDate currentDate = today;
+	private List<TimeSlot> timeSlots = new ArrayList<>();
+	LocalDate currentDate = LocalDate.now();
+	Label month = new Label(currentDate.getMonth().toString());
 
 	@Override
 	public void start(Stage primaryStage) {
 		GridPane calendarView = new GridPane();
 		primaryStage.setTitle("Astronomical Calendar App");
 
-		TextField yearEntry = new TextField();
-		yearEntry.setMaxSize(80, 80);
-		yearEntry.textProperty().addListener(new ChangeListener<String>() {
-			@Override
-			public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
-				if (!newValue.matches("\\d*")) {
-					yearEntry.setText(newValue.replaceAll("[^\\d]", ""));
-				}
-				if (yearEntry.getText() != "") {
-
-					if (yearEntry.getText().length() > 4) {
-						String s = yearEntry.getText().substring(0, 4);
-						yearEntry.setText(s);
-					}
-				}
-			}
-		});
-
-		yearEntry.setOnKeyPressed(event -> {
-			if (event.getCode() == KeyCode.ENTER) {
-				int year = Integer.parseInt(yearEntry.getText());
-				if (year > 2100) {
-					yearEntry.setText("2100");
-				} else if (year < 1900) {
-					yearEntry.setText("1900");
-				}
-				year = Integer.parseInt(yearEntry.getText());
-				currentDate = currentDate.withYear(year);
-				System.out.println(currentDate);
-				setMonth(calendarView, currentDate);
-			}
-
-		});
-
-		yearEntry.setPromptText("1900-2100");
-		yearEntry.setAlignment(Pos.CENTER_RIGHT);
-		calendarView.add(yearEntry, 6, 1);
-
-		// set text for yearEntry
-		Text yearEntryText = new Text("Enter Year:");
-		calendarView.add(yearEntryText, 5, 1);
-
-		Button setButton = new Button();
-
-		setButton.setOnMouseClicked(event -> {
-
-		});
-
-		setMonth(calendarView, currentDate);
-
-		// Add space at top
-		Rectangle r = new Rectangle(80, 80);
-		r.setOpacity(0);
-		calendarView.add(r, 1, 0);
-
-		Month months[] = { Month.JANUARY, Month.FEBRUARY, Month.MARCH, Month.APRIL, Month.MAY, Month.JUNE,
-				Month.JULY, Month.AUGUST, Month.SEPTEMBER, Month.OCTOBER, Month.NOVEMBER, Month.DECEMBER };
-
-		// Create a combo box
-		ComboBox<Month> monthsDropdown = new ComboBox<Month>(FXCollections.observableArrayList(months));
-		monthsDropdown.getSelectionModel().select(currentDate.getMonthValue()-1);
-		calendarView.add(monthsDropdown, 1, 1);
+		setMonth(calendarView, primaryStage, currentDate);
+		setDayOfWeekHeaders(calendarView, currentDate);
+	
+		BorderPane header = new BorderPane();
 		
-		monthsDropdown.setOnAction(event -> {
-			currentDate = currentDate.withMonth(monthsDropdown.getValue().getValue());
-			setMonth(calendarView, currentDate);
-		});
-
-		// headers:
-
-		DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("E");
-		LocalDate startOfWeek = today.minusDays(today.getDayOfWeek().getValue() - 1);
-		LocalDate endOfWeek = startOfWeek.plusDays(6);
-
-		for (LocalDate date = startOfWeek; !date.isAfter(endOfWeek); date = date.plusDays(1)) {
-			Label label = new Label(date.format(dayFormatter));
-			label.setPadding(new Insets(1));
-			label.setTextAlignment(TextAlignment.CENTER);
-			GridPane.setHalignment(label, HPos.CENTER);
-			calendarView.add(label, date.getDayOfWeek().getValue(), 2);
-		}
-
-		ScrollPane scroller = new ScrollPane(calendarView);
-
-		Scene scene = new Scene(scroller);
+		HBox hbox = setHBox(calendarView, primaryStage);
+		header.setCenter(hbox);
+		
+		month.setFont(new Font("Arial", 50));
+		
+		BorderPane.setAlignment(month, Pos.CENTER);
+		header.setBottom(month);
+		
+		header.getStyleClass().add("header");	
+		header.setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, BorderWidths.DEFAULT)));
+		
+		//Main layout featuring calendar as the center
+	    BorderPane layout = new BorderPane();
+	    layout.setTop(header);
+		layout.setCenter(calendarView);
+		
+		Scene scene = new Scene(layout);
 		scene.getStylesheets().add(getClass().getResource("calendar-view.css").toExternalForm());
 		primaryStage.setScene(scene);
 		primaryStage.show();
 
 	}
 
-	// Registers handlers on the time slot to manage selecting a range of slots in
-	// the grid.
+	private HBox setHBox(GridPane calendarView, Stage primaryStage) {
+		HBox hbox = new HBox();
+		Button dateButton = new Button("Set month and year");
 
-	// Utility method that checks if testSlot is "between" startSlot and endSlot
-	// Here "between" means in the visual sense in the grid: i.e. does the time slot
-	// lie in the smallest rectangle in the grid containing startSlot and endSlot
-	//
-	// Note that start slot may be "after" end slot (either in terms of day, or
-	// time, or both).
+		//open new window
+		dateButton.setOnMouseClicked(event -> {
+			Stage dateWindow = new Stage();
+			//TODO CHANGE THIS
+			dateWindow.setTitle(currentDate.getMonth().toString() + " " + currentDate.getDayOfMonth() + " " + currentDate.getYear());
+			dateWindow.initModality(Modality.WINDOW_MODAL);
+			dateWindow.initOwner(primaryStage);
+			
+			//Year Entry textfield
+			Label yearEntryLabel = new Label("Enter Year: ");	
+			TextField yearEntry = new TextField();
+			yearEntry.setMaxSize(80, 80);
+			yearEntry.setPromptText("1900-2100");
+			yearEntry.setText("" + currentDate.getYear());
+			yearEntry.setAlignment(Pos.CENTER_RIGHT);
+			yearEntry.textProperty().addListener(new ChangeListener<String>() {
+				@Override
+				public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
+					if (!newValue.matches("\\d*")) {
+						yearEntry.setText(newValue.replaceAll("[^\\d]", ""));
+					}
+					if (yearEntry.getText() != "") {
 
-	// The strategy is to test if the day for testSlot is between that for startSlot
-	// and endSlot,
-	// and to test if the time for testSlot is between that for startSlot and
-	// endSlot,
-	// and return true if and only if both of those hold.
+						if (yearEntry.getText().length() > 4) {
+							String s = yearEntry.getText().substring(0, 4);
+							yearEntry.setText(s);
+						}
+					}
+				}
+			});
+			
+			//Month drop-down
+			Label monthEntryLabel = new Label("Select Month: ");
+			Month months[] = { Month.JANUARY, Month.FEBRUARY, Month.MARCH, Month.APRIL, Month.MAY, Month.JUNE,
+					Month.JULY, Month.AUGUST, Month.SEPTEMBER, Month.OCTOBER, Month.NOVEMBER, Month.DECEMBER };
 
-	// Finally we note that x <= y <= z or z <= y <= x if and only if (y-x)*(z-y) >=
-	// 0.
+			ComboBox<Month> monthsDropdown = new ComboBox<Month>(FXCollections.observableArrayList(months));
+			monthsDropdown.getSelectionModel().select(currentDate.getMonthValue()-1);
+			
+			//Ok Button
+			Button okButton = new Button("OK");
+			okButton.setOnMouseClicked(pressEvent -> {
+				try {
+				int year = Integer.parseInt(yearEntry.getText());
+				if (year > 2100) {
+					year = 2100;
+				} else if (year < 1900) {
+					year = 1900;
+				}
+				currentDate = currentDate.withYear(year);
+				currentDate = currentDate.withMonth(monthsDropdown.getValue().getValue());
+				month.setText(currentDate.getMonth().toString());
+				setMonth(calendarView, primaryStage, currentDate);
+				dateWindow.close();
+				
+				} catch (NumberFormatException e) {
+					Alert alert = new Alert(AlertType.ERROR);
+					alert.setHeaderText("Invalid Entry");
+					alert.setContentText("Please enter a year to continue");
+					alert.show();
+				}
+			});
+			
+			//Cancel button
+			Button cancelButton = new Button("Cancel");
+			cancelButton.setOnMouseClicked(pressEvent -> {
+				dateWindow.close();
+			});
+			
+			//add children to pane
+			GridPane datePane = new GridPane();
+			datePane.add(yearEntryLabel, 1, 2);
+			datePane.add(yearEntry, 2, 2);
+			datePane.add(cancelButton, 1, 3);
+			datePane.add(okButton, 2, 3);
+			datePane.add(monthEntryLabel, 1, 1);
+			datePane.add(monthsDropdown, 2, 1);
+			
+			datePane.setHgap(5);
+			datePane.setVgap(5);
+			datePane.setPadding(new Insets(10));
+			
+			dateWindow.setScene(new Scene(datePane));
+			dateWindow.show();
+		});
+		
+	    hbox.setPadding(new Insets(15, 12, 15, 12));
+	    hbox.setSpacing(10);
+	    hbox.setStyle("-fx-background-color: #336699;");
+	    
+	    Button geolocationButton = new Button("Set Geolocation");
+	    
+	    hbox.getChildren().addAll(dateButton, geolocationButton);
+	    
+		return hbox;
+	}
 
-	// Class representing a time interval, or "Time Slot", along with a view.
-	// View is just represented by a region with minimum size, and style class.
+	private void setDayOfWeekHeaders(GridPane calendarView, LocalDate date) {
+		DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("E");
+		LocalDate startOfWeek = date.minusDays(date.getDayOfWeek().getValue() - 1);
+		LocalDate endOfWeek = startOfWeek.plusDays(6);
 
-	// Has a selected property just to represent selection.
+		for (LocalDate d = startOfWeek; !d.isAfter(endOfWeek); d = d.plusDays(1)) {
+			Label label = new Label(d.format(dayFormatter));
+			label.setPadding(new Insets(1));
+			label.setTextAlignment(TextAlignment.CENTER);
+			GridPane.setHalignment(label, HPos.CENTER);
+			calendarView.add(label, d.getDayOfWeek().getValue(), 2);
+		}
+	}
 
 	public static class TimeSlot {
+		private LocalDate date;
+		private Pane view;
 
-		private final LocalDate date;
-		private final Pane view;
-
-		public TimeSlot(LocalDate date) {
+		public TimeSlot(LocalDate date, Stage primaryStage) {
 			this.date = date;
-
 			view = new Pane();
 			view.setMinSize(80, 80);
 			view.getStyleClass().add("time-slot");
-
 			Text t = new Text(10, 20, date.toString());
 			view.getChildren().add(t);
 
 			// TODO: Make action listener handle Swiss library on click
 			view.setOnMouseClicked(event -> {
-				System.out.println(date.toString());
+				SwissEphDate s = new SwissEphDate(date, -119.4960, 49.803, 334.0);
+				System.out.println("Sunrise Time: " + s.getSunriseTime());
+				System.out.println("Sunset Time: " + s.getSunsetTime());
+				System.out.println("Moonrise Time: " + s.getMoonriseTime());
+				System.out.println("Moonset Time: " + s.getMoonsetTime());
+				
+				Stage dateWindow = new Stage();
+				//dateWindow.setTitle(date.getMonth().toString() + " " + currentDate.getDayOfMonth() + " " + currentDate.getYear());
+				dateWindow.initModality(Modality.WINDOW_MODAL);
+				dateWindow.initOwner(primaryStage);
+				
+				//Year Entry textfield
+				Label yearEntryLabel = new Label("Enter Year: ");	
+				TextField yearEntry = new TextField();
+				yearEntry.setMaxSize(80, 80);
+				yearEntry.setPromptText("1900-2100");
+				//yearEntry.setText("" + currentDate.getYear());
+				yearEntry.setAlignment(Pos.CENTER_RIGHT);
+				
+				
+				GridPane datePane = new GridPane();
+				datePane.add(yearEntryLabel, 1, 2);
+				datePane.add(yearEntry, 2, 2);
+				dateWindow.setScene(new Scene(datePane));
+				dateWindow.show();
 			});
 
 		}
 
-		public LocalDate getDate() {
-			return date;
-		}
-
-		public DayOfWeek getDayOfWeek() {
-			return date.getDayOfWeek();
-		}
-
-		public Node getView() {
-			return view;
-		}
-
+		public LocalDate getDate() {return date;}
+		public DayOfWeek getDayOfWeek() {return date.getDayOfWeek();}
+		public Node getView() {return view;}
 	}
-
-	public void setMonth(GridPane calendarView, LocalDate date) {
+	
+	public void setMonth(GridPane calendarView, Stage primaryStage, LocalDate date) {
 		for (TimeSlot t : timeSlots) {
 			calendarView.getChildren().remove(t.getView());
 		}
-
 		timeSlots.clear();
-
+		
 		LocalDate startOfMonth = date.withDayOfMonth(1);
 		LocalDate endOfMonth = date.withDayOfMonth(date.lengthOfMonth());
 		int row = 3;
 
 		for (LocalDate d = startOfMonth; !d.isAfter(endOfMonth); d = d.plusDays(1)) {
-
-			TimeSlot timeSlot = new TimeSlot(d);
+			TimeSlot timeSlot = new TimeSlot(d, primaryStage);
 			timeSlots.add(timeSlot);
-
 			calendarView.add(timeSlot.getView(), timeSlot.getDayOfWeek().getValue(), row);
-			// calendarView.add
 
 			// If it is Sunday, switch increase row count
 			if (timeSlot.getDayOfWeek().getValue() == 7) {
 				row++;
 			}
-
 		}
 	}
 
