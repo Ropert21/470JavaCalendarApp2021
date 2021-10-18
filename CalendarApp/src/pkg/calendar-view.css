@@ -1,9 +1,17 @@
 .time-slot {
-	-fx-background-color: black, white ;
+	-fx-background-color: black, #DDDDDD ;
 	-fx-background-insets: 0.5, 1 1 1 1 ;
 }
 
 .header {
 	-fx-background-color: #FFFFFF;
 	-fx-background-insets: 0, 1 1 1 1 ;
+}
+
+.hbox-header {
+	-fx-background-color: #336699;
+}
+
+.datePane {
+	-fx-background-color: black, #DDDDDD;
 }
