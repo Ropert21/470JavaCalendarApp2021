@@ -188,14 +188,14 @@ public class SwissEphDate {
 		return current;
 	}
 	
-	// Returns wether the day contains a solar eclipse, might be useful for guis
+	// Returns whether the day contains a solar eclipse, might be useful for guis
 	public boolean isSolarEclipse() {
 		if(getNextSolarEclipse().equals(gregDate))
 			return true;
 		return false;
 	}
 	
-	// Returns wether the day contains a lunar eclipse, might be useful for guis
+	// Returns whether the day contains a lunar eclipse, might be useful for guis
 	public boolean isLunarEclipse() {
 		if(getNextLunarEclipse().equals(gregDate))
 			return true;
@@ -218,5 +218,10 @@ public class SwissEphDate {
 		if (minutes < 10)
 			output = "0" + output;
 		return output;
+	}
+	
+	//Get longitude, latitude, and elevation
+	public double[] getPositions() {
+		return position;
 	}
 }
