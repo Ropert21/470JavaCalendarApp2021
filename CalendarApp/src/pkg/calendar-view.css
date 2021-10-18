@@ -1,0 +1,9 @@
+.time-slot {
+	-fx-background-color: black, white ;
+	-fx-background-insets: 0.5, 1 1 1 1 ;
+}
+
+.header {
+	-fx-background-color: #FFFFFF;
+	-fx-background-insets: 0, 1 1 1 1 ;
+}
