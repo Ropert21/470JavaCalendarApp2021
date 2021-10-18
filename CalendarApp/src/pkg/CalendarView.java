@@ -1,5 +1,7 @@
 package pkg;
 
+import java.io.File;
+import java.io.PrintWriter;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.Month;
@@ -19,6 +21,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
@@ -33,10 +36,14 @@ import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
+import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
@@ -44,7 +51,11 @@ public class CalendarView extends Application {
 
 	private List<TimeSlot> timeSlots = new ArrayList<>();
 	LocalDate currentDate = LocalDate.now();
+	
 	Label month = new Label(currentDate.getMonth().toString());
+	Text longitudeText = new Text();
+	Text latitudeText = new Text();
+	Text elevationText = new Text();
 
 	@Override
 	public void start(Stage primaryStage) {
@@ -53,7 +64,7 @@ public class CalendarView extends Application {
 		primaryStage.setResizable(false);
 		primaryStage.sizeToScene();
 
-		setMonth(calendarView, primaryStage, currentDate);
+		setMonth(calendarView, primaryStage, currentDate, new SwissEphDate(currentDate, -119.4960, 49.803, 334.0));
 		setDayOfWeekHeaders(calendarView, currentDate);
 
 		BorderPane header = new BorderPane();
@@ -82,6 +93,7 @@ public class CalendarView extends Application {
 
 	}
 
+	// Set the HBox in the header which contains the buttons
 	private HBox setHBox(GridPane calendarView, Stage primaryStage) {
 		HBox hbox = new HBox();
 		Button dateButton = new Button("Set month and year");
@@ -137,7 +149,8 @@ public class CalendarView extends Application {
 					currentDate = currentDate.withYear(year);
 					currentDate = currentDate.withMonth(monthsDropdown.getValue().getValue());
 					month.setText(currentDate.getMonth().toString());
-					setMonth(calendarView, primaryStage, currentDate);
+					//double[] positions = timeSlots.get(0).getSwissEphDate()
+					setMonth(calendarView, primaryStage, currentDate, timeSlots.get(0).getSwissEphDate());
 					dateWindow.close();
 
 				} catch (NumberFormatException e) {
@@ -206,6 +219,10 @@ public class CalendarView extends Application {
 					double latitude = Double.parseDouble(latitudeEntry.getText());
 					double elevation = Double.parseDouble(elevationEntry.getText());
 					
+					longitudeText.setText("Longitude: " + longitude);
+					latitudeText.setText("Latitude: " +  latitude);
+					elevationText.setText("Elevation: " + elevation + "m");
+
 					for (TimeSlot ts : timeSlots) {
 						ts.setSwissEphDate(new SwissEphDate(ts.getDate(), longitude, latitude, elevation));
 					}
@@ -217,7 +234,7 @@ public class CalendarView extends Application {
 					alert.show();
 				}
 			});
-			
+
 			Button cancelButton = new Button("Cancel");
 			cancelButton.setOnMouseClicked(cancelPressEvent -> {
 				geolocationWindow.close();
@@ -236,18 +253,105 @@ public class CalendarView extends Application {
 			setDatePane.add(elevationEntry, 2, 3);
 			setDatePane.add(cancelButton, 1, 4);
 			setDatePane.add(okButton, 2, 4);
-			
 
 			geolocationWindow.setScene(new Scene(setDatePane));
 			geolocationWindow.show();
 
 		});
 
-		hbox.getChildren().addAll(dateButton, geolocationButton);
+		Button csvButton = new Button("Export Month");
+		csvButton.setOnMouseClicked(cvsPressEvent -> {
+			FileChooser fileChooser = new FileChooser();
 
+			// Set extension filter for text files
+			FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("CSV files (*.csv)", "*.csv");
+			fileChooser.getExtensionFilters().add(extFilter);
+
+			// Show save file dialog
+			File file = fileChooser.showSaveDialog(primaryStage);
+			
+			//Show dialog as its saving
+			Alert csvAlert = new Alert(AlertType.INFORMATION);
+			csvAlert.getButtonTypes().clear();
+			csvAlert.setTitle("Saving file");
+			csvAlert.setHeaderText(null);
+			csvAlert.setContentText("Saving file, please wait...");
+
+			csvAlert.show();
+			try (PrintWriter writer = new PrintWriter(file)) {
+
+				StringBuilder sb = new StringBuilder();
+				sb.append("Date");
+				sb.append(',');
+				sb.append("SunriseTime");
+				sb.append(',');
+				sb.append("SunsetTime");
+				sb.append(',');
+				sb.append("MoonriseTime");
+				sb.append(',');
+				sb.append("MoonsetTime");
+				sb.append(',');
+				sb.append("MoonPhase");
+				sb.append(',');
+				sb.append("NextSolarDate");
+				sb.append(',');
+				sb.append("NextLunarDate");
+				sb.append('\n');
+
+				for (TimeSlot ts : timeSlots) {
+					SwissEphDate s = ts.getSwissEphDate();
+					sb.append(ts.getDate().toString());
+					sb.append(',');
+					sb.append(s.getSunriseTime());
+					sb.append(',');
+					sb.append(s.getSunsetTime());
+					sb.append(',');
+					sb.append(s.getMoonriseTime());
+					sb.append(',');
+					sb.append(s.getMoonsetTime());
+					sb.append(',');
+					sb.append(s.getMoonPhase());
+					sb.append(',');
+					sb.append(s.getNextSolarEclipse().toString());
+					sb.append(',');
+					sb.append(s.getNextLunarEclipse().toString());
+					sb.append('\n');
+				}
+
+				//file now exists, so write to it and tell the user
+				if (file != null) {
+					writer.println(sb.toString());
+					writer.close();
+					//Button needed in order to close dialog
+					csvAlert.getButtonTypes().add(ButtonType.OK);
+					csvAlert.close();
+					csvAlert = new Alert(AlertType.INFORMATION);
+					csvAlert.setTitle("File Saved");
+					csvAlert.setHeaderText(null);
+					csvAlert.setContentText("File saved successfully!");
+					csvAlert.showAndWait();
+				}
+			} catch (Exception e) {
+				System.out.println(e.getMessage());
+			}
+		});
+		
+		//Create Space between buttons and position coordinates
+        Region region1 = new Region();
+        HBox.setHgrow(region1, Priority.ALWAYS);
+
+		VBox vbox = new VBox();
+		double[] position = timeSlots.get(0).getSwissEphDate().getPositions();
+		longitudeText.setText("Longitude: " + position[0]);
+		latitudeText.setText("Latitude: " + position[1]);
+		elevationText.setText("Elevation: " + position[2] + "m");
+		vbox.getChildren().addAll(longitudeText, latitudeText, elevationText);
+		
+		hbox.getChildren().addAll(dateButton, geolocationButton, csvButton, region1, vbox);
 		return hbox;
 	}
 
+	//Mon    Tues    Wed    etc
 	private void setDayOfWeekHeaders(GridPane calendarView, LocalDate date) {
 		DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("E");
 		LocalDate startOfWeek = date.minusDays(date.getDayOfWeek().getValue() - 1);
@@ -262,23 +366,26 @@ public class CalendarView extends Application {
 		}
 	}
 
+	// Each square in the Calendar GUI is a Timeslot, stores it's own date, pane, and calculation
 	public static class TimeSlot {
 		private LocalDate date;
 		private Pane view;
 		private SwissEphDate SED;
 
-		public TimeSlot(LocalDate date, Stage primaryStage) {
+		public TimeSlot(LocalDate date, Stage primaryStage, SwissEphDate s) {
 			this.date = date;
 			view = new Pane();
 			view.setMinSize(80, 80);
 			view.getStyleClass().add("time-slot");
 			Text t = new Text(10, 20, date.getDayOfMonth() + "");
-			SED = new SwissEphDate(date, -119.4960, 49.803, 334.0);
+			
+			double[] position = s.getPositions();
+			SED = new SwissEphDate(date, position[0], position[1], position[2]);
+			//SED = new SwissEphDate(date, -119.4960, 49.803, 334.0);
 			ImageView moonPhaseImg = new ImageView(SED.getMoonPhaseImg());
 			moonPhaseImg.setFitWidth(10);
 			moonPhaseImg.setFitHeight(10);
 
-			// view.relocate(100, 200);
 			view.getChildren().addAll(t, moonPhaseImg);
 			moonPhaseImg.relocate(60, 5);
 			t.relocate(5, 0);
@@ -289,35 +396,34 @@ public class CalendarView extends Application {
 				dateWindow.initModality(Modality.WINDOW_MODAL);
 				dateWindow.initOwner(primaryStage);
 
-				Text sunriseText = new Text(10, 20, "Sunset Time: " + SED.getSunsetTime());
-				Text sunsetText = new Text(10, 20, "Sunrise Time: " + SED.getSunriseTime());
-				// Text moonriseText = new Text(10, 20, "Moonrise Time: " +
-				// s.getMoonriseTime());
-				// Text moonsetText = new Text(10, 20, "Moonset Time: " + s.getMoonsetTime());
+				// Calculate data for given date and display it
+				Text sunriseText = new Text(10, 20, "Sunrise Time: " + SED.getSunriseTime());
+				Text sunsetText = new Text(10, 20, "Sunset Time: " + SED.getSunsetTime());
+				Text moonriseText = new Text(10, 20, "Moonrise Time: " + SED.getMoonriseTime());
+				Text moonsetText = new Text(10, 20, "Moonset Time: " + SED.getMoonsetTime());
 				Text nextSolarEclipseText = new Text(10, 20,
 						"Next Solar Eclipse: " + SED.getNextSolarEclipse().toString());
 				Text nextLunarEclipseText = new Text(10, 20,
 						"Next Lunar Eclipse: " + SED.getNextLunarEclipse().toString());
 				ImageView moonPhaseView = new ImageView(SED.getMoonPhaseImg());
+
 				moonPhaseView.setFitWidth(50);
 				moonPhaseView.setFitHeight(50);
-
 				Tooltip.install(moonPhaseView, new Tooltip(SED.getMoonPhase()));
 
 				GridPane datePane = new GridPane();
-				datePane.setPadding(new Insets(20));
+				datePane.setPadding(new Insets(37));
 				datePane.setHgap(5);
 				datePane.setVgap(5);
+				datePane.getStyleClass().add("datePane");
 
 				datePane.add(moonPhaseView, 1, 0);
 				datePane.add(sunriseText, 1, 1);
 				datePane.add(sunsetText, 1, 2);
-				// datePane.add(moonriseText, 1, 3);
-				// datePane.add(moonsetText, 1, 4);
+				datePane.add(moonriseText, 1, 3);
+				datePane.add(moonsetText, 1, 4);
 				datePane.add(nextSolarEclipseText, 1, 5);
 				datePane.add(nextLunarEclipseText, 1, 6);
-
-				datePane.getStyleClass().add("datePane");
 
 				dateWindow.setScene(new Scene(datePane));
 				dateWindow.show();
@@ -327,6 +433,10 @@ public class CalendarView extends Application {
 
 		public void setSwissEphDate(SwissEphDate s) {
 			SED = s;
+		}
+
+		public SwissEphDate getSwissEphDate() {
+			return SED;
 		}
 
 		public LocalDate getDate() {
@@ -343,7 +453,7 @@ public class CalendarView extends Application {
 
 	}
 
-	public void setMonth(GridPane calendarView, Stage primaryStage, LocalDate date) {
+	public void setMonth(GridPane calendarView, Stage primaryStage, LocalDate date, SwissEphDate s) {
 		for (TimeSlot t : timeSlots) {
 			calendarView.getChildren().remove(t.getView());
 		}
@@ -354,7 +464,7 @@ public class CalendarView extends Application {
 		int row = 3;
 
 		for (LocalDate d = startOfMonth; !d.isAfter(endOfMonth); d = d.plusDays(1)) {
-			TimeSlot timeSlot = new TimeSlot(d, primaryStage);
+			TimeSlot timeSlot = new TimeSlot(d, primaryStage, s);
 			timeSlots.add(timeSlot);
 			calendarView.add(timeSlot.getView(), timeSlot.getDayOfWeek().getValue(), row);
 
